@@ -1,24 +1,22 @@
 import React from 'react';
-import { RoutingContext } from 'react-router';
-import Fetchr from 'fetchr';
-import { createLocation } from 'history';
-import debugFactory from 'debug';
-import { app$ } from '../../common/app';
-import { RenderToString } from 'thundercats-react';
+import { RouterContext } from 'react-router';
+import debug from 'debug';
 
-const debug = debugFactory('freecc:react-server');
+import renderToString from '../../common/app/utils/render-to-string';
+import provideStore from '../../common/app/provide-store';
+
+import app$ from '../../common/app';
+
+const log = debug('fcc:react-server');
 
 // add routes here as they slowly get reactified
 // remove their individual controllers
 const routes = [
-  '/jobs',
-  '/jobs/*'
+  '/videos',
+  '/videos/*'
 ];
 
-const devRoutes = [
-  '/hikes',
-  '/hikes/*'
-];
+const devRoutes = [];
 
 export default function reactSubRouter(app) {
   var router = app.loopback.Router();
@@ -37,44 +35,43 @@ export default function reactSubRouter(app) {
   app.use(router);
 
   function serveReactApp(req, res, next) {
-    const services = new Fetchr({ req });
-    const location = createLocation(req.path);
-
-    // returns a router wrapped app
-    app$({ location })
+    const serviceOptions = { req };
+    app$({
+      location: req.path,
+      serviceOptions
+    })
       // if react-router does not find a route send down the chain
-      .filter(function({ props }) {
+      .filter(({ redirect, props }) => {
+        if (!props && redirect) {
+          res.redirect(redirect.pathname + redirect.search);
+        }
         if (!props) {
-          debug('react tried to find %s but got 404', location.pathname);
+          log(`react tried to find ${location.pathname} but got 404`);
           return next();
         }
         return !!props;
       })
-      .flatMap(function({ props, AppCat }) {
-        // call thundercats renderToString
-        // prefetches data and sets up it up for current state
-        debug('rendering to string');
-        return RenderToString(
-          AppCat(null, services),
-          React.createElement(RoutingContext, props)
-        );
+      .flatMap(({ props, store }) => {
+        log('render react markup and pre-fetch data');
+
+        return renderToString(
+          provideStore(React.createElement(RouterContext, props), store)
+        )
+          .map(({ markup }) => ({ markup, store }));
       })
-      // makes sure we only get one onNext and closes subscription
-      .flatMap(function({ data, markup }) {
-        debug('react rendered');
-        const { title } = data.AppStore;
-        res.expose(data, 'data');
-        // now render jade file with markup injected from react
+      .flatMap(function({ markup, store }) {
+        log('react markup rendered, data fetched');
+        const state = store.getState();
+        const { title } = state.app.title;
+        res.expose(state, 'data');
         return res.render$(
           'layout-react',
           { markup, title }
         );
       })
+      .doOnNext(markup => res.send(markup))
       .subscribe(
-        function(markup) {
-          debug('jade rendered');
-          res.send(markup);
-        },
+        () => log('html rendered and ready to send'),
         next
       );
   }

@@ -1,5 +1,5 @@
 // enable debug for gulp
-process.env.DEBUG = process.env.DEBUG || 'freecc:*';
+process.env.DEBUG = process.env.DEBUG || 'fcc:*';
 
 require('babel-core/register');
 var Rx = require('rx'),
@@ -12,7 +12,7 @@ var Rx = require('rx'),
   gutil = require('gulp-util'),
   reduce = require('gulp-reduce-file'),
   sortKeys = require('sort-keys'),
-  debug = require('debug')('freecc:gulp'),
+  debug = require('debug')('fcc:gulp'),
   yargs = require('yargs'),
   concat = require('gulp-concat'),
   uglify = require('gulp-uglify'),
@@ -39,8 +39,11 @@ var Rx = require('rx'),
 
   // lint
   jsonlint = require('gulp-jsonlint'),
-  eslint = require('gulp-eslint');
+  eslint = require('gulp-eslint'),
 
+  // unit-tests
+  tape = require('gulp-tape'),
+  tapSpec = require('tap-spec');
 
 Rx.config.longStackSupport = true;
 
@@ -95,6 +98,11 @@ var paths = {
     'public/bower_components/bootstrap/dist/js/bootstrap.min.js',
     'public/bower_components/d3/d3.min.js',
     'public/bower_components/moment/min/moment.min.js',
+
+    'public/bower_components/' +
+      'moment-timezone/builds/moment-timezone-with-data.min.js',
+
+    'public/bower_components/mousetrap/mousetrap.min.js',
     'public/bower_components/lightbox2/dist/js/lightbox.min.js',
     'public/bower_components/rxjs/dist/rx.all.min.js'
   ],
@@ -128,7 +136,7 @@ var paths = {
   ],
 
   less: './client/less/main.less',
-  lessFiles: './client/less/*.less',
+  lessFiles: './client/less/**/*.less',
 
   manifest: 'server/manifests/',
 
@@ -142,7 +150,7 @@ var paths = {
   ],
 
   challenges: [
-    'seed/challenges/*.json'
+    'seed/challenges/*/*.json'
   ]
 };
 
@@ -180,7 +188,7 @@ function delRev(dest, manifestName) {
   });
 }
 
-gulp.task('serve', function(cb) {
+gulp.task('serve', ['build-manifest'], function(cb) {
   var called = false;
   nodemon({
     script: paths.server,
@@ -188,8 +196,8 @@ gulp.task('serve', function(cb) {
     ignore: paths.serverIgnore,
     exec: path.join(__dirname, 'node_modules/.bin/babel-node'),
     env: {
-      'NODE_ENV': 'development',
-      'DEBUG': process.env.DEBUG || 'freecc:*'
+      'NODE_ENV': process.env.NODE_ENV || 'development',
+      'DEBUG': process.env.DEBUG || 'fcc:*'
     }
   })
     .on('start', function() {
@@ -354,10 +362,15 @@ gulp.task('less', function() {
   var dest = paths.css;
   return gulp.src(paths.less)
     .pipe(plumber({ errorHandler: errorHandler }))
+    .pipe(__DEV__ ? sourcemaps.init() : gutil.noop())
     // compile
     .pipe(less({
       paths: [ path.join(__dirname, 'less', 'includes') ]
     }))
+    .pipe(__DEV__ ?
+      sourcemaps.write({ sourceRoot: '/less' }) :
+      gutil.noop()
+    )
     .pipe(gulp.dest(dest))
     // add revision
     .pipe(rev())
@@ -480,6 +493,10 @@ function buildManifest() {
 
 var buildDependents = ['less', 'js', 'dependents'];
 
+if (__DEV__) {
+  buildDependents.push('pack-watch-manifest');
+}
+
 gulp.task('build-manifest', buildDependents, function() {
   return buildManifest();
 });
@@ -502,9 +519,9 @@ var watchDependents = [
   'dependents',
   'serve',
   'sync',
-  'build-manifest',
   'pack-watch',
-  'pack-watch-manifest'
+  'pack-watch-manifest',
+  'build-manifest'
 ];
 
 gulp.task('reload', function() {
@@ -514,7 +531,7 @@ gulp.task('reload', function() {
 
 gulp.task('watch', watchDependents, function() {
   gulp.watch(paths.lessFiles, ['less']);
-  gulp.watch(paths.js, ['js']);
+  gulp.watch(paths.js.concat(paths.vendorChallenges), ['js']);
   gulp.watch(paths.challenges, ['test-challenges', 'reload']);
   gulp.watch(paths.js, ['js', 'dependents']);
   gulp.watch(
@@ -530,6 +547,14 @@ gulp.task('default', [
   'serve',
   'pack-watch',
   'pack-watch-manifest',
+  'build-manifest-watch',
   'watch',
   'sync'
 ]);
+
+gulp.task('test', function() {
+  return gulp.src('test/**/*.js')
+    .pipe(tape({
+      reporter: tapSpec()
+    }));
+});

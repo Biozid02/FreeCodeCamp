@@ -11,7 +11,6 @@ import {
 import navLinks from './links.json';
 import FCCNavItem from './NavItem.jsx';
 
-const win = typeof window !== 'undefined' ? window : {};
 const fCClogo = 'https://s3.amazonaws.com/freecodecamp/freecodecamp_logo.svg';
 
 const logoElement = (
@@ -24,30 +23,20 @@ const logoElement = (
 );
 
 const toggleButtonChild = (
-    <Col xs={ 12 }>
-      <span className='hamburger-text'>Menu</span>
-    </Col>
+  <Col xs={ 12 }>
+    <span className='hamburger-text'>Menu</span>
+  </Col>
 );
 
-function getDashedName() {
-  let challengeDashedName;
-  if (typeof win.localStorage !== 'undefined') {
-    challengeDashedName = win.localStorage.getItem('currentDashedName');
-  }
-  return challengeDashedName && challengeDashedName !== 'undefined' ?
-    challengeDashedName :
-    '';
-}
+export default class extends React.Component {
+  static displayName = 'Nav';
 
-export default React.createClass({
-  displayName: 'Nav',
-
-  propTypes: {
+  static propTypes = {
     points: PropTypes.number,
     picture: PropTypes.string,
     signedIn: PropTypes.bool,
     username: PropTypes.string
-  },
+  };
 
   renderLinks() {
     return navLinks.map(({ content, link, react, target }, index) => {
@@ -74,23 +63,7 @@ export default React.createClass({
         </NavItem>
       );
     });
-  },
-
-  renderLearnBtn() {
-    return (
-      <NavItem
-        href='#'
-        onClick={ () => {
-          const challengeDashedName = getDashedName();
-          const goTo = challengeDashedName ?
-          '/challenges/' + challengeDashedName :
-          '/map';
-          win.location = goTo;
-        }}>
-        Learn
-      </NavItem>
-    );
-  },
+  }
 
   renderPoints(username, points) {
     if (!username) {
@@ -103,32 +76,31 @@ export default React.createClass({
         [ { points } ]
       </FCCNavItem>
     );
-  },
+  }
 
   renderSignin(username, picture) {
     if (username) {
       return (
-        <div
-          className='hidden-xs hidden-sm'
+        <li
+          className='hidden-xs hidden-sm avatar'
           eventKey={ 2 }>
           <a href={ '/' + username }>
             <img
               className='profile-picture float-right'
               src={ picture } />
           </a>
-        </div>
+        </li>
       );
     } else {
       return (
-        <FCCNavItem
-          className='btn signup-btn signup-btn-nav signin-button-nav'
+        <NavItem
           eventKey={ 2 }
-          href='/login'>
+          href='/signin'>
           Sign In
-        </FCCNavItem>
+        </NavItem>
       );
     }
-  },
+  }
 
   render() {
     const { username, points, picture } = this.props;
@@ -144,7 +116,6 @@ export default React.createClass({
             className='hamburger-dropdown'
             navbar={ true }
             pullRight={ true }>
-            { this.renderLearnBtn() }
             { this.renderLinks() }
             { this.renderPoints(username, points) }
             { this.renderSignin(username, picture) }
@@ -153,4 +124,4 @@ export default React.createClass({
       </Navbar>
     );
   }
-});
+}

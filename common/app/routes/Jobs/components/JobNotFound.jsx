@@ -1,9 +1,13 @@
 import React from 'react';
 import { LinkContainer } from 'react-router-bootstrap';
-import { Button, Row, Col, Panel } from 'react-bootstrap';
+import { Button, Row, Col } from 'react-bootstrap';
 
-export default React.createClass({
-  displayName: 'NoJobFound',
+export default class extends React.Component {
+  static displayName = 'NoJobFound';
+
+  shouldComponentUpdate() {
+    return false;
+  }
 
   render() {
     return (
@@ -12,7 +16,7 @@ export default React.createClass({
           <Col
             md={ 6 }
             mdOffset={ 3 }>
-            <Panel>
+            <div>
               No job found...
               <LinkContainer to='/jobs'>
                 <Button
@@ -22,10 +26,10 @@ export default React.createClass({
                   Go to the job board
                 </Button>
               </LinkContainer>
-            </Panel>
+            </div>
           </Col>
         </Row>
       </div>
     );
   }
-});
+}

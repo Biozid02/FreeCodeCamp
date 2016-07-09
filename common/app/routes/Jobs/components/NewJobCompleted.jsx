@@ -1,14 +1,14 @@
 import React from 'react';
 import { LinkContainer } from 'react-router-bootstrap';
-import { Button, Panel, Col, Row } from 'react-bootstrap';
+import { Button, Col, Row } from 'react-bootstrap';
 
-export default React.createClass({
-  displayName: 'NewJobCompleted',
+export default class extends React.createClass {
+  static displayName = 'NewJobCompleted';
 
   render() {
     return (
       <div className='text-center'>
-        <Panel>
+        <div>
           <Row>
             <h1>
               Your Position has Been Submitted
@@ -32,8 +32,8 @@ export default React.createClass({
               Go to the job board
             </Button>
           </LinkContainer>
-        </Panel>
+        </div>
       </div>
     );
   }
-});
+}

@@ -1,6 +1,12 @@
 import React, { PropTypes } from 'react';
-import { History } from 'react-router';
-import { contain } from 'thundercats-react';
+import { compose } from 'redux';
+import { connect } from 'react-redux';
+import { push } from 'react-router-redux';
+import PureComponent from 'react-pure-render/component';
+import { createSelector } from 'reselect';
+
+import contain from '../../../utils/professor-x';
+import { fetchJobs } from '../redux/actions';
 
 import ShowJob from './ShowJob.jsx';
 import JobNotFound from './JobNotFound.jsx';
@@ -9,25 +15,25 @@ import { isJobValid } from '../utils';
 function shouldShowApply(
   {
     isFrontEndCert: isFrontEndCertReq = false,
-    isFullStackCert: isFullStackCertReq = false
+    isBackEndCert: isBackEndCertReq = false
   }, {
     isFrontEndCert = false,
-    isFullStackCert = false
+    isBackEndCert = false
   }
 ) {
-  return (!isFrontEndCertReq && !isFullStackCertReq) ||
-    (isFullStackCertReq && isFullStackCert) ||
+  return (!isFrontEndCertReq && !isBackEndCertReq) ||
+    (isBackEndCertReq && isBackEndCert) ||
     (isFrontEndCertReq && isFrontEndCert);
 }
 
 function generateMessage(
   {
     isFrontEndCert: isFrontEndCertReq = false,
-    isFullStackCert: isFullStackCertReq = false
+    isBackEndCert: isBackEndCertReq = false
   },
   {
     isFrontEndCert = false,
-    isFullStackCert = false,
+    isBackEndCert = false,
     isSignedIn = false
   }
 ) {
@@ -39,97 +45,102 @@ function generateMessage(
     return 'This employer requires Free Code Camp’s Front ' +
       'End Development Certification in order to apply';
   }
-  if (isFullStackCertReq && !isFullStackCert) {
-    return 'This employer requires Free Code Camp’s Full ' +
-      'Stack Development Certification in order to apply';
+  if (isBackEndCertReq && !isBackEndCert) {
+    return 'This employer requires Free Code Camp’s Back ' +
+      'End Development Certification in order to apply';
   }
   if (isFrontEndCertReq && isFrontEndCertReq) {
     return 'This employer requires the Front End Development Certification. ' +
       "You've earned it, so feel free to apply.";
   }
-  return 'This employer requires the Full Stack Development Certification. ' +
+  return 'This employer requires the Back End Development Certification. ' +
     "You've earned it, so feel free to apply.";
 }
 
-export default contain(
-  {
-    stores: ['appStore', 'jobsStore'],
-    fetchWaitFor: 'jobsStore',
-    fetchAction: 'jobActions.getJob',
-    combineLatest(
-      { username, isFrontEndCert, isFullStackCert },
-      { currentJob }
-    ) {
-      return {
-        username,
-        job: currentJob,
-        isFrontEndCert,
-        isFullStackCert
-      };
-    },
-    getPayload({ params: { id }, job = {} }) {
-      return {
-        id,
-        isPrimed: job.id === id
-      };
-    },
-    // using es6 destructuring
-    shouldContainerFetch({ job = {} }, { params: { id } }
-    ) {
-      return job.id !== id;
-    }
-  },
-  React.createClass({
-    displayName: 'Show',
-
-    propTypes: {
-      job: PropTypes.object,
-      isFullStackCert: PropTypes.bool,
-      isFrontEndCert: PropTypes.bool,
-      username: PropTypes.string
-    },
-
-    mixins: [History],
-
-    componentDidMount() {
-      const { job } = this.props;
-      // redirect user in client
-      if (!isJobValid(job)) {
-        this.history.pushState(null, '/jobs');
-      }
-    },
-
-    render() {
-      const {
-        isFullStackCert,
-        isFrontEndCert,
-        job,
-        username
-      } = this.props;
-
-      if (!isJobValid(job)) {
-        return <JobNotFound />;
-      }
-
-      const isSignedIn = !!username;
-
-      const showApply = shouldShowApply(
-        job,
-        { isFrontEndCert, isFullStackCert }
-      );
-
-      const message = generateMessage(
-        job,
-        { isFrontEndCert, isFullStackCert, isSignedIn }
-      );
-
-      return (
-        <ShowJob
-          message={ message }
-          preview={ false }
-          showApply={ showApply }
-          { ...this.props }/>
-      );
-    }
+const mapStateToProps = createSelector(
+  state => state.app,
+  state => state.jobsApp.currentJob,
+  state => state.jobsApp.jobs.entities,
+  ({ username, isFrontEndCert, isBackEndCert }, currentJob, jobs) => ({
+    username,
+    isFrontEndCert,
+    isBackEndCert,
+    job: jobs[currentJob] || {}
   })
 );
+
+const bindableActions = {
+  push,
+  fetchJobs
+};
+
+const fetchOptions = {
+  fetchAction: 'fetchJobs',
+  getActionArgs({ params: { id } }) {
+    return [ id ];
+  },
+  isPrimed({ params: { id } = {}, job = {} }) {
+    return job.id === id;
+  },
+  // using es6 destructuring
+  shouldRefetch({ job }, { params: { id } }) {
+    return job.id !== id;
+  }
+};
+
+export class Show extends PureComponent {
+  static displayName = 'Show';
+
+  static propTypes = {
+    job: PropTypes.object,
+    isBackEndCert: PropTypes.bool,
+    isFrontEndCert: PropTypes.bool,
+    username: PropTypes.string
+  };
+
+  componentDidMount() {
+    const { job, push } = this.props;
+    // redirect user in client
+    if (!isJobValid(job)) {
+      push('/jobs');
+    }
+  }
+
+  render() {
+    const {
+      isBackEndCert,
+      isFrontEndCert,
+      job,
+      username
+    } = this.props;
+
+    if (!isJobValid(job)) {
+      return <JobNotFound />;
+    }
+
+    const isSignedIn = !!username;
+
+    const showApply = shouldShowApply(
+      job,
+      { isFrontEndCert, isBackEndCert }
+    );
+
+    const message = generateMessage(
+      job,
+      { isFrontEndCert, isBackEndCert, isSignedIn }
+    );
+
+    return (
+      <ShowJob
+        message={ message }
+        preview={ false }
+        showApply={ showApply }
+        { ...this.props }/>
+    );
+  }
+}
+
+export default compose(
+  connect(mapStateToProps, bindableActions),
+  contain(fetchOptions)
+)(Show);

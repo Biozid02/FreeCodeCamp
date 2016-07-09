@@ -14,16 +14,16 @@ module.exports = function(app) {
       return next();
     }
     req.user.picture = defaultProfileImage;
-    req.user.save(function(err) {
+    return req.user.save(function(err) {
       if (err) { return next(err); }
-      next();
+      return next();
     });
   }
 
   function index(req, res) {
     if (req.user) {
-      return res.redirect('/map');
+      return res.redirect('/challenges/current-challenge');
     }
-    res.render('home', { title: message });
+    return res.render('home', { title: message });
   }
 };
